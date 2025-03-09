@@ -10,6 +10,7 @@ class PoseDataset(Dataset):
         self.root_dir = root_dir
         self.annotation_dir = annotation_dir
         self.transform = transform
+        self.num_keypoints = 17  # COCO format has 17 keypoints
         
         # Load annotations
         print(f"Loading annotations from {annotation_dir}")
@@ -21,137 +22,96 @@ class PoseDataset(Dataset):
         # Combine and create labels
         self.all_data = []
         self.all_labels = []
-        self.all_visibility = []  # New list to store visibility flags
+        self.all_visibility = []
         
-        # Add correct poses (label 0)
-        for i, pose in enumerate(self.correct_annotations):
-            try:
-                # Debug print for the first pose
-                if i == 0:
-                    print(f"Sample correct pose data: {pose[:2]}")  # Print first 2 keypoints
-                
-                # Convert string coordinates to float arrays and extract visibility
-                keypoints = []
-                visibility = []
-                for point in pose:
-                    try:
-                        if isinstance(point, str):
-                            # Try comma split first
-                            try:
-                                values = [float(x.strip()) for x in point.split(',')]
-                            except ValueError:
-                                # If comma split fails, try space split
-                                values = [float(x.strip()) for x in point.split()]
-                        elif isinstance(point, (list, tuple)):
-                            values = [float(x) for x in point]
-                        else:
-                            raise ValueError(f"Unexpected point format: {type(point)}")
-                        
-                        if len(values) == 3:  # COCO format [x, y, v]
-                            coords = values[:2]
-                            vis = int(values[2])  # visibility flag
-                        elif len(values) == 2:  # Just coordinates
-                            coords = values
-                            vis = 2  # Assume visible if not specified
-                        else:
-                            raise ValueError(f"Expected 2 or 3 values, got {len(values)}")
-                            
-                        keypoints.append(coords)
-                        visibility.append(vis)
-                    except Exception as e:
-                        print(f"Error processing point in correct pose {i}: {point}")
-                        print(f"Error: {str(e)}")
-                        raise
-                
-                if len(keypoints) != 17:
-                    raise ValueError(f"Expected 17 keypoints, got {len(keypoints)}")
-                
-                self.all_data.append(keypoints)
-                self.all_labels.append(0)
-                self.all_visibility.append(visibility)
-            except Exception as e:
-                print(f"Error processing correct pose {i}")
-                print(f"Error: {str(e)}")
-                raise
+        # Process correct poses (label 0)
+        for keypoints in self.correct_annotations:
+            self.all_data.append(keypoints[:, :2])  # Only x,y coordinates
+            self.all_visibility.append(keypoints[:, 2])  # Visibility values
+            self.all_labels.append(0)
             
-        # Add incorrect poses (label 1)
-        for i, pose in enumerate(self.incorrect_annotations):
-            try:
-                # Debug print for the first pose
-                if i == 0:
-                    print(f"Sample incorrect pose data: {pose[:2]}")  # Print first 2 keypoints
-                
-                # Convert string coordinates to float arrays and extract visibility
-                keypoints = []
-                visibility = []
-                for point in pose:
-                    try:
-                        if isinstance(point, str):
-                            # Try comma split first
-                            try:
-                                values = [float(x.strip()) for x in point.split(',')]
-                            except ValueError:
-                                # If comma split fails, try space split
-                                values = [float(x.strip()) for x in point.split()]
-                        elif isinstance(point, (list, tuple)):
-                            values = [float(x) for x in point]
-                        else:
-                            raise ValueError(f"Unexpected point format: {type(point)}")
-                        
-                        if len(values) == 3:  # COCO format [x, y, v]
-                            coords = values[:2]
-                            vis = int(values[2])  # visibility flag
-                        elif len(values) == 2:  # Just coordinates
-                            coords = values
-                            vis = 2  # Assume visible if not specified
-                        else:
-                            raise ValueError(f"Expected 2 or 3 values, got {len(values)}")
-                            
-                        keypoints.append(coords)
-                        visibility.append(vis)
-                    except Exception as e:
-                        print(f"Error processing point in incorrect pose {i}: {point}")
-                        print(f"Error: {str(e)}")
-                        raise
-                
-                if len(keypoints) != 17:
-                    raise ValueError(f"Expected 17 keypoints, got {len(keypoints)}")
-                
-                self.all_data.append(keypoints)
-                self.all_labels.append(1)
-                self.all_visibility.append(visibility)
-            except Exception as e:
-                print(f"Error processing incorrect pose {i}")
-                print(f"Error: {str(e)}")
-                raise
-    
-    def _load_json(self, path):
+        # Process incorrect poses (label 1)
+        for keypoints in self.incorrect_annotations:
+            self.all_data.append(keypoints[:, :2])  # Only x,y coordinates
+            self.all_visibility.append(keypoints[:, 2])  # Visibility values
+            self.all_labels.append(1)
+            
+        print(f"Total dataset size: {len(self.all_data)} samples")
+        
+    def _load_json(self, json_path):
+        """
+        Load and parse a COCO format JSON file containing keypoint annotations.
+        
+        Args:
+            json_path (str): Path to the JSON file
+            
+        Returns:
+            list: List of keypoint annotations
+        """
         try:
-            with open(path, 'r') as f:
+            with open(json_path, 'r') as f:
                 data = json.load(f)
-                print(f"Successfully loaded {path}")
-                if len(data) > 0:
-                    print(f"First item type: {type(data[0])}")
-                    print(f"First item length: {len(data[0])}")
-                    print(f"First item first element: {data[0][0]}")
-                return data
+                
+            # Validate COCO format structure
+            required_keys = ['images', 'annotations', 'categories']
+            if not all(key in data for key in required_keys):
+                raise ValueError(f"JSON file missing required COCO format keys. Required: {required_keys}")
+                
+            print(f"Loaded {len(data['annotations'])} annotations from {json_path}")
+            print(f"Number of images: {len(data['images'])}")
+            print(f"Categories: {[cat['name'] for cat in data['categories']]}")
+            
+            # Extract keypoint annotations
+            keypoint_annotations = []
+            for ann in data['annotations']:
+                if 'keypoints' not in ann:
+                    continue
+                    
+                keypoints = ann['keypoints']
+                # COCO format has [x, y, v] triplets
+                if len(keypoints) != self.num_keypoints * 3:
+                    print(f"Warning: Expected {self.num_keypoints * 3} values for keypoints, got {len(keypoints)}")
+                    continue
+                    
+                # Reshape into [N, 3] format where N is number of keypoints
+                keypoints = np.array(keypoints).reshape(-1, 3)
+                keypoint_annotations.append(keypoints)
+                
+            if not keypoint_annotations:
+                raise ValueError(f"No valid keypoint annotations found in {json_path}")
+                
+            print(f"Successfully processed {len(keypoint_annotations)} keypoint annotations")
+            return keypoint_annotations
+            
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Failed to parse JSON file {json_path}: {str(e)}")
         except Exception as e:
-            print(f"Error loading {path}")
-            print(f"Error: {str(e)}")
-            raise
+            raise ValueError(f"Error loading annotations from {json_path}: {str(e)}")
     
     def _create_edge_index(self):
-        # Define the skeleton connections
+        """
+        Create edge connections for COCO keypoints.
+        COCO keypoint order: [nose, left_eye, right_eye, left_ear, right_ear, left_shoulder, right_shoulder,
+                            left_elbow, right_elbow, left_wrist, right_wrist, left_hip, right_hip,
+                            left_knee, right_knee, left_ankle, right_ankle]
+        """
         edges = [
+            # Face
+            [0, 1], [0, 2],  # Nose to eyes
+            [1, 3], [2, 4],  # Eyes to ears
+            
+            # Arms
+            [5, 7], [7, 9],    # Left arm
+            [6, 8], [8, 10],   # Right arm
+            
             # Torso
-            [0, 1], [1, 2], [2, 3],  # Spine
-            [2, 4], [4, 5],          # Right arm
-            [2, 6], [6, 7],          # Left arm
-            [3, 8], [3, 9],          # Hips
-            [8, 10], [10, 11],       # Right leg
-            [9, 12], [12, 13],       # Left leg
-            [4, 14], [6, 15],        # Shoulders
-            [1, 16]                  # Neck
+            [5, 6],    # Shoulders
+            [5, 11], [6, 12],  # Shoulders to hips
+            [11, 12],  # Hips
+            
+            # Legs
+            [11, 13], [13, 15],  # Left leg
+            [12, 14], [14, 16],  # Right leg
         ]
         
         # Create bidirectional edges
