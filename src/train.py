@@ -5,6 +5,7 @@ from tqdm import tqdm
 import numpy as np
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 import matplotlib.pyplot as plt
+import os
 
 from data_processing import load_dataset
 from gcn_model import PoseGCN
@@ -51,7 +52,8 @@ def evaluate(model, loader, device):
     
     return accuracy, precision, recall, f1
 
-def plot_metrics(train_losses, val_metrics, save_path='training_metrics.png'):
+def plot_metrics(train_losses, val_metrics, save_path='models/training_metrics.png'):
+    """Plot training metrics and save to file"""
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 10))
     
     # Plot training loss
@@ -73,6 +75,7 @@ def plot_metrics(train_losses, val_metrics, save_path='training_metrics.png'):
     plt.tight_layout()
     plt.savefig(save_path)
     plt.close()
+    print(f"Saved training plot to {save_path}")
 
 def main():
     # Set device
@@ -101,6 +104,9 @@ def main():
         'accuracy': [], 'precision': [], 'recall': [], 'f1': []
     }
     
+    # Create models directory if it doesn't exist
+    os.makedirs('models', exist_ok=True)
+    
     # Training loop
     for epoch in range(num_epochs):
         # Train
@@ -125,9 +131,17 @@ def main():
         # Save best model
         if val_acc > best_val_acc:
             best_val_acc = val_acc
-            torch.save(model.state_dict(), 'best_model.pth')
+            torch.save({
+                'epoch': epoch,
+                'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'val_acc': val_acc,
+                'val_metrics': val_metrics,
+                'train_losses': train_losses
+            }, 'models/best_model.pth')
+            print(f"Saved best model with validation accuracy: {val_acc:.4f}")
         
-        # Plot metrics
+        # Plot and save metrics
         plot_metrics(train_losses, val_metrics)
 
 if __name__ == '__main__':
