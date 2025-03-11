@@ -4,6 +4,87 @@ import torch
 from torch_geometric.data import Data, Dataset
 import os
 
+class PoseAugmentation(object):
+    """Data augmentation for pose keypoints in graph format."""
+    def __init__(self, noise_level=0.02, drop_edge_prob=0.1, invisible_prob=0.1, p=0.5):
+        self.noise_level = noise_level
+        self.drop_edge_prob = drop_edge_prob
+        self.invisible_prob = invisible_prob
+        self.p = p  # Probability of applying augmentation
+        
+    def __call__(self, data):
+        if np.random.random() > self.p:
+            return data
+            
+        # Clone the data to avoid modifying the original
+        augmented_data = Data(
+            x=data.x.clone(),
+            edge_index=data.edge_index.clone(),
+            y=data.y.clone(),
+            visibility=data.visibility.clone() if hasattr(data, 'visibility') else None,
+            batch=data.batch if hasattr(data, 'batch') else None
+        )
+        
+        # Apply a sequence of augmentations
+        augmented_data = self._augment_keypoints(augmented_data)
+        augmented_data = self._mask_edges(augmented_data)
+        
+        if hasattr(augmented_data, 'visibility'):
+            augmented_data = self._augment_visibility(augmented_data)
+            
+        return augmented_data
+        
+    def _augment_keypoints(self, data, noise_level=None):
+        """Add random noise to keypoint positions."""
+        if np.random.random() > 0.5:
+            return data
+            
+        if noise_level is None:
+            noise_level = self.noise_level
+            
+        # Add random noise to node features (keypoint positions)
+        noise = torch.randn_like(data.x) * noise_level
+        data.x = data.x + noise
+        
+        return data
+        
+    def _mask_edges(self, data, drop_prob=None):
+        """Randomly drop edges to simulate occlusions."""
+        if np.random.random() > 0.5:
+            return data
+            
+        if drop_prob is None:
+            drop_prob = self.drop_edge_prob
+        
+        # Create a mask to drop edges randomly
+        edge_mask = torch.rand(data.edge_index.size(1)) > drop_prob
+        data.edge_index = data.edge_index[:, edge_mask]
+        
+        return data
+        
+    def _augment_visibility(self, data, invisible_prob=None):
+        """Simulate randomly invisible keypoints."""
+        if np.random.random() > 0.5:
+            return data
+            
+        if invisible_prob is None:
+            invisible_prob = self.invisible_prob
+        
+        # Randomly set some keypoints as invisible
+        mask = torch.rand(data.visibility.size()) < invisible_prob
+        data.visibility[mask] = 0.0
+        
+        # For invisible keypoints, you could set their position to mean
+        # or introduce some noise to make the model more robust
+        invisible_nodes = torch.where(data.visibility == 0)[0]
+        if len(invisible_nodes) > 0:
+            mean_pos = data.x.mean(dim=0)
+            # Add some noise to the mean position
+            noise = torch.randn_like(mean_pos) * 0.1
+            data.x[invisible_nodes] = mean_pos + noise
+        
+        return data
+
 class PoseDataset(Dataset):
     def __init__(self, root_dir, annotation_dir, transform=None):
         super(PoseDataset, self).__init__()
