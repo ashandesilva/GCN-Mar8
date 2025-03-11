@@ -115,3 +115,36 @@ The GCN model consists of:
 3. Add data augmentation techniques
 4. Experiment with different graph edge connections
 5. Try different optimizers or learning rate schedules
+
+
+## How train.py or train.ipynb works
+
+how the data is being used in this GCN model:
+
+1. **Data Source**: The model uses COCO format keypoint annotations, which consist of 17 keypoints per person representing different body joints (nose, eyes, ears, shoulders, elbows, wrists, hips, knees, ankles). Each keypoint has:
+   - x, y coordinates
+   - visibility flag (0: not labeled, 1: labeled but not visible, 2: labeled and visible)
+
+2. **Data Processing**:
+   - The data is loaded from JSON annotation files in the `annotations_v1` directory
+   - Two types of annotations are loaded:
+     - `correct_n2_3_7_100.json`: Contains annotations for correct poses
+     - `lumbar_3_7_dell_111.json`: Contains annotations for incorrect poses (with lumbar errors)
+   - The keypoints are converted into a graph structure where:
+     - Nodes are the 17 keypoints with their x,y coordinates as features
+     - Edges connect related body parts (e.g., nose-eye, shoulder-elbow, etc.)
+
+3. **Image Usage**: While there is a `data_v1` directory that contains image frames, the GCN model itself does not use the raw images. Instead, it only uses the keypoint coordinates that were presumably extracted from these images beforehand using a pose estimation model (like OpenPose or MediaPipe).
+
+#### Is this gcn trained using only annotations? isnt images being used?
+1. The he GCN is trained using only the keypoint annotations (coordinates and visibility flags) from the JSON files
+2. No, the raw images are not directly used in the training process. The images in the `data_v1` directory were likely used earlier in the pipeline to:
+   - Extract the keypoints using a pose estimation model
+   - Serve as reference for human annotators to label the poses as correct/incorrect
+   - Potentially for visualization or debugging purposes
+
+This approach makes sense because:
+1. The pose correctness can be determined from the relative positions of body joints
+2. Using only keypoints makes the model more efficient and focused on the geometric relationships between body parts
+3. The GCN can learn the spatial relationships between joints that characterize correct vs incorrect poses
+

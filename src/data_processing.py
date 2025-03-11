@@ -14,8 +14,10 @@ class PoseDataset(Dataset):
         
         # Load annotations
         print(f"Loading annotations from {annotation_dir}")
-        self.correct_annotations = self._load_json(os.path.join(annotation_dir, "correct_n2_3_7_100.json"))
-        self.incorrect_annotations = self._load_json(os.path.join(annotation_dir, "lumbar_3_7_dell_111.json"))
+        # self.correct_annotations = self._load_json(os.path.join(annotation_dir, "correct_n2_3_7_100.json"))
+        # self.incorrect_annotations = self._load_json(os.path.join(annotation_dir, "lumbar_3_7_dell_111.json"))
+        self.correct_annotations = self._load_json(os.path.join(annotation_dir, "t5-sherul-300-195-correct.json"))
+        self.incorrect_annotations = self._load_json(os.path.join(annotation_dir, "lumbar-K-1.1-160.json"))
         
         print(f"Loaded {len(self.correct_annotations)} correct poses and {len(self.incorrect_annotations)} incorrect poses")
         
