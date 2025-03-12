@@ -1,3 +1,8 @@
 src/__pycache__
 venv
 __pycache__
+benchmark/configs/__pycache__
+benchmark/data/__pycache__
+benchmark/models/__pycache__
+benchmark/utils/__pycache__
+

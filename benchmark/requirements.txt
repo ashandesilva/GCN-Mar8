@@ -1,0 +1,28 @@
+# Deep Learning Framework
+torch>=1.9.0
+torchvision>=0.10.0
+torch-geometric>=2.0.0
+
+# Data Processing
+numpy>=1.19.5
+pandas>=1.3.0
+scikit-learn>=0.24.2
+
+# Image Processing
+Pillow>=8.3.0  # For PIL/Image processing
+
+# Visualization
+matplotlib>=3.4.0
+seaborn>=0.11.0
+
+# Utilities
+tqdm>=4.62.0  # For progress bars
+tensorboard>=2.7.0  # For training visualization
+pyyaml>=5.4.0  # For config files
+
+# Model Architectures
+timm>=0.4.12  # For additional model architectures
+
+# Optional but recommended
+opencv-python>=4.5.0  # For additional image processing
+albumentations>=1.0.0  # For image augmentations
