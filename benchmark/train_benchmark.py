@@ -105,7 +105,15 @@ def main():
     
     results = {}
     
+    # List of models to skip
+    models_to_skip = [
+        'vgg19', 'ResNet50', 'vgg16', 'DenseNet201', 'InceptionV3'
+    ]
+
     for model_name, config in MODEL_CONFIGS.items():
+        if model_name in models_to_skip:
+            print(f"Skipping {model_name}")
+            continue
         print(f"\nTraining {model_name}")
         
         # Create datasets and dataloaders
