@@ -107,7 +107,7 @@ def main():
     
     # List of models to skip
     models_to_skip = [
-        'vgg19', 'ResNet50', 'vgg16', 'DenseNet201', 'InceptionV3'
+        'vgg19', 'vgg16', 'DenseNet201', 'InceptionV3'
     ]
 
     for model_name, config in MODEL_CONFIGS.items():
